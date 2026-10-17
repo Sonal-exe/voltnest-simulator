@@ -34,3 +34,7 @@ glob APPLIANCE_LIBRARY: list[Device] = [
     Device(name="Water heater", watts=2000.0),
     Device(name="Vacuum", watts=1000.0, start_minute=900, run_minutes=30)
 ];
+
+def:pub getApplianceLibrary() -> list[Device] {
+    return APPLIANCE_LIBRARY;
+}

@@ -80,11 +80,20 @@ def:pub simulateRoomData(room_names: list[str], room_devices: list[list[dict]]) 
     return simulateDay(rooms);
 }
 
-def:pub simulateApplianceNames(appliance_names: list[str]) -> ScheduleSimulationResult {
+def:pub simulateApplianceData(appliances: list[dict]) -> ScheduleSimulationResult {
     devices: list[Device] = [];
-    for appliance_name in appliance_names {
-        for device in APPLIANCE_LIBRARY {
-            if device.name == appliance_name { devices.append(device); }
+    for appliance in appliances {
+        for estimate in APPLIANCE_LIBRARY {
+            if estimate.name == (appliance["name"] as str) {
+                devices.append(Device(
+                    name=estimate.name,
+                    watts=appliance["watts"] as float,
+                    start_minute=estimate.start_minute,
+                    run_minutes=estimate.run_minutes,
+                    duty_cycle=appliance["duty_cycle"] as float,
+                    lights_only=estimate.lights_only
+                ));
+            }
         }
     }
     return simulateDay([Room(name="Home", devices=devices)]);

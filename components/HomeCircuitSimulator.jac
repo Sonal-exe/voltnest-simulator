@@ -1,6 +1,7 @@
 import from "@jac/runtime" { Link }
 import from .ui.card { Card, CardContent, CardHeader, CardTitle, CardDescription }
 import from .ui.button { Button }
+import from .EnergyShell { EnergyShell }
 sv import from ..engine.circuits { Device, getApplianceLibrary }
 sv import from ..engine.simulation { ScheduleSimulationResult, simulateRoomData }
 
@@ -90,98 +91,92 @@ def:pub HomeCircuitSimulator() -> JsxElement {
     def handle_watts(e: ChangeEvent) { watts_input = e.target.value; }
     def handle_hours(e: ChangeEvent) { hours_input = e.target.value; }
 
-    return <main className="min-h-svh bg-muted/40 text-foreground">
-        <header className="border-b bg-background/90">
-            <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-6">
-                <div className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm"><span className="text-lg font-bold">V</span></div>
-                <span className="text-2xl font-bold tracking-tight">Voltnest</span>
-                <Link to="/" className="ml-auto text-sm text-muted-foreground hover:text-foreground">Home</Link>
-            </div>
-        </header>
-        <section className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-10">
+    return <EnergyShell current="simulator">
+        <section className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-5 py-8 md:px-8 md:py-10">
             <div className="flex flex-col gap-2">
-                <h1 className="text-3xl font-semibold tracking-tight">Build your home simulation</h1>
-                <p className="text-sm text-muted-foreground">Add rooms, choose appliances, and estimate a full day's electricity use.</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-200/70">Energy predictor</p>
+                <h1 className="text-3xl font-semibold tracking-tight text-white">Build your home prediction</h1>
+                <p className="text-sm text-slate-400">Add rooms, choose appliances, and estimate a full day of electricity use.</p>
             </div>
             <div className="grid gap-5 lg:grid-cols-2">
-                <Card className="shadow-sm">
-                    <CardHeader><CardTitle>Rooms and appliances</CardTitle><CardDescription>Appliance values begin as estimates. Adjust them to match your home.</CardDescription></CardHeader>
+                <Card className="border border-violet-200/15 bg-[#140d22]/90 shadow-2xl shadow-violet-950/30 backdrop-blur-xl">
+                    <CardHeader><CardTitle className="text-slate-100">Rooms and appliances</CardTitle><CardDescription className="text-slate-400">Appliance values begin as estimates. Adjust them to match your home.</CardDescription></CardHeader>
                     <CardContent className="flex flex-col gap-5">
                         <div className="flex flex-col gap-2 sm:flex-row">
-                            <input aria-label="New room name" value={room_name_input} onChange={handle_room_name} placeholder="Room name, for example Kitchen" className="h-10 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm" />
-                            <Button variant="outline" onClick={add_room}>Add room</Button>
+                            <input aria-label="New room name" value={room_name_input} onChange={handle_room_name} placeholder="Room name, for example Kitchen" className="h-10 min-w-0 flex-1 rounded-md border border-violet-200/15 bg-[#0a0711] px-3 text-sm text-slate-100 placeholder:text-slate-500 focus:border-cyan-300/50 focus:outline-none" />
+                            <Button variant="outline" onClick={add_room} className="border-violet-200/20 bg-violet-500/10 text-violet-100 hover:bg-violet-500/20">Add room</Button>
                         </div>
                         {if loading {
-                            <p className="text-sm text-muted-foreground">Loading appliance library…</p>
+                            <p className="text-sm text-slate-400">Loading appliance library…</p>
                         } else {
                             <div className="flex flex-col gap-2">
-                                <p className="text-sm font-medium">Appliance library</p>
+                                <p className="text-sm font-medium text-slate-200">Appliance library</p>
                                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                                     {for (index, device) in enumerate(library) {
-                                        <button key={str(index)} onClick={lambda (_e: MouseEvent) { choose_device(device); }} className="rounded-lg border bg-background px-3 py-2 text-left text-sm transition-colors hover:bg-muted/60">
+                                        <button key={str(index)} onClick={lambda (_e: MouseEvent) { choose_device(device); }} className="rounded-xl border border-violet-200/10 bg-[#0d0917]/80 px-3 py-2 text-left text-sm text-slate-100 transition-all duration-300 hover:border-cyan-200/30 hover:bg-violet-950/30">
                                             <span className="block font-medium">{device.name}</span>
-                                            <span className="text-xs text-muted-foreground">{str(device.watts) + " W estimated"}</span>
+                                            <span className="text-xs text-slate-400">{str(device.watts) + " W estimated"}</span>
                                         </button>
                                     }}
                                 </div>
                             </div>
                         }}
                         {if pending_device is not None {
-                            <div className="flex flex-col gap-3 rounded-lg border bg-muted/30 p-4">
+                            <div className="flex flex-col gap-3 rounded-xl border border-violet-200/15 bg-gradient-to-br from-violet-500/10 to-cyan-400/5 p-4">
                                 <p className="text-sm font-medium">{pending_device.name} values (Estimated)</p>
                                 <div className="grid grid-cols-2 gap-3">
-                                    <label className="flex flex-col gap-1 text-xs text-muted-foreground">Wattage (W)
-                                        <input type="number" min="1" value={watts_input} onChange={handle_watts} className="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground" />
+                                    <label className="flex flex-col gap-1 text-xs text-slate-400">Wattage (W)
+                                        <input type="number" min="1" value={watts_input} onChange={handle_watts} className="h-10 rounded-md border border-violet-200/15 bg-[#0a0711] px-3 text-sm text-slate-100 focus:border-cyan-300/50 focus:outline-none" />
                                     </label>
-                                    <label className="flex flex-col gap-1 text-xs text-muted-foreground">Hours each day
-                                        <input type="number" min="0.25" max="24" step="0.25" value={hours_input} onChange={handle_hours} className="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground" />
+                                    <label className="flex flex-col gap-1 text-xs text-slate-400">Hours each day
+                                        <input type="number" min="0.25" max="24" step="0.25" value={hours_input} onChange={handle_hours} className="h-10 rounded-md border border-violet-200/15 bg-[#0a0711] px-3 text-sm text-slate-100 focus:border-cyan-300/50 focus:outline-none" />
                                     </label>
                                 </div>
                             </div>
                         }}
                         {for (index, room_name) in enumerate(room_names) {
-                            <div key={str(index)} className="flex flex-col gap-2 rounded-lg border bg-background p-3">
-                                <h2 className="font-medium">{room_name}</h2>
+                            <div key={str(index)} className="flex flex-col gap-2 rounded-xl border border-violet-200/10 bg-[#0d0917]/80 p-3 shadow-md shadow-black/20">
+                                <h2 className="font-medium text-slate-100">{room_name}</h2>
                                 {if len(room_devices[index]) == 0 {
-                                    <p className="text-sm text-muted-foreground">No appliances added yet.</p>
+                                    <p className="text-sm text-slate-400">No appliances added yet.</p>
                                 } else {
                                     for device in room_devices[index] {
-                                        <p key={str(device["name"])} className="text-sm">{str(device["name"]) + " · " + str(device["watts"]) + " W · " + str(device["run_minutes"]) + " minutes (Estimated)"}</p>
+                                        <p key={str(device["name"])} className="text-sm text-slate-200">{str(device["name"]) + " · " + str(device["watts"]) + " W · " + str(device["run_minutes"]) + " minutes (Estimated)"}</p>
                                     }
                                 }}
-                                <Button variant="outline" onClick={lambda (_e: MouseEvent) { add_device(index); }}>Add selected appliance here</Button>
+                                <Button variant="outline" onClick={lambda (_e: MouseEvent) { add_device(index); }} className="border-violet-200/20 bg-violet-500/10 text-violet-100 hover:bg-violet-500/20">Add selected appliance here</Button>
                             </div>
                         }}
                         {if error_message != "" { <p className="text-sm text-destructive">{error_message}</p> }}
-                        <Button onClick={run_simulation}>Simulate</Button>
+                        <Button onClick={run_simulation} className="border border-cyan-200/20 bg-gradient-to-r from-violet-700 via-violet-600 to-cyan-700 text-white shadow-lg shadow-violet-950/30 transition-all duration-300 hover:-translate-y-0.5 hover:from-violet-600 hover:to-cyan-600">Simulate</Button>
                     </CardContent>
                 </Card>
-                <Card className="shadow-sm">
-                    <CardHeader><CardTitle>Daily load</CardTitle><CardDescription>Estimated power use in each 15-minute step</CardDescription></CardHeader>
+                <Card className="border border-violet-200/15 bg-[#140d22]/90 shadow-2xl shadow-violet-950/30 backdrop-blur-xl">
+                    <CardHeader><CardTitle className="text-slate-100">Daily energy prediction</CardTitle><CardDescription className="text-slate-400">Estimated power use in each 15-minute step</CardDescription></CardHeader>
                     <CardContent className="flex flex-col gap-4">
                         {if result is None {
-                            <div className="rounded-xl border border-dashed bg-background px-5 py-10 text-center">
-                                <p className="font-medium">No simulation yet</p>
-                                <p className="mt-1 text-sm text-muted-foreground">Add an appliance and select Simulate to see daily load.</p>
+                            <div className="rounded-xl border border-dashed border-violet-200/20 bg-[#0d0917]/70 px-5 py-10 text-center">
+                                <p className="font-medium text-slate-100">No simulation yet</p>
+                                <p className="mt-1 text-sm text-slate-400">Add an appliance and select Simulate to see daily load.</p>
                             </div>
                         } else {
-                            <p className="text-3xl font-semibold tabular-nums">{f"{result.total_kwh:.3f} kWh"}</p>
-                            <div className="flex h-48 items-end gap-1 overflow-x-auto rounded-lg border bg-background p-3">
+                            <p className="text-3xl font-semibold tabular-nums text-white">{f"{result.total_kwh:.3f} kWh"}</p>
+                            <div className="flex h-48 items-end gap-1 overflow-x-auto rounded-xl border border-violet-200/15 bg-[#0b0813]/90 p-3">
                                 {for (index, load) in enumerate(result.step_loads) {
                                     max_watts = 1.0;
                                     for each_load in result.step_loads {
                                         if each_load.watts > max_watts { max_watts = each_load.watts; }
                                     }
                                     bar_height = 100.0 * load.watts / max_watts;
-                                    <div key={str(index)} title={f"{load.minute // 60:02d}:{load.minute % 60:02d} · {load.watts:.0f} W"} className="min-w-1 flex-1 rounded-t-sm bg-primary/80" style={{"height": f"{bar_height:.0f}%"}} />
+                                    <div key={str(index)} title={f"{load.minute // 60:02d}:{load.minute % 60:02d} · {load.watts:.0f} W"} className="min-w-1 flex-1 rounded-t-sm bg-gradient-to-t from-violet-700 via-violet-400 to-cyan-300 shadow-[0_0_12px_rgba(125,80,220,0.35)] transition-all duration-500 ease-out" style={{"height": f"{bar_height:.0f}%"}} />
                                 }}
                             </div>
-                            <div className="flex justify-between text-xs text-muted-foreground"><span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span></div>
-                            <p className="text-xs text-muted-foreground">Each bar shows the estimated load for 15 minutes.</p>
+                            <div className="flex justify-between text-xs text-slate-400"><span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span></div>
+                            <p className="text-xs text-slate-400">Each bar shows the estimated load for 15 minutes.</p>
                         }}
                     </CardContent>
                 </Card>
             </div>
         </section>
-    </main>;
+    </EnergyShell>;
 }

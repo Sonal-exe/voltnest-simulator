@@ -11,23 +11,21 @@ test "kettle uses half a kilowatt hour" {
     assert abs(result.total_kwh - 0.5) < 0.000001;
 }
 
-test "circuits group lights sockets and heavy appliances with standard ratings" {
+test "circuits group lights separately and all plug-in appliances under sockets" {
     bulb = Device(name="Bulb", watts=10.0, start_minute=1080, run_minutes=300, lights_only=True);
     fan = Device(name="Fan", watts=60.0);
     socket_device = Device(name="Socket device", watts=100.0);
-    ac = Device(name="AC", watts=1200.0);
-    result = simulateDay([Room(name="Bedroom", devices=[bulb, fan, socket_device, ac])]);
-    assert len(result.circuits) == 3;
+    heater = Device(name="Water heater", watts=1200.0);
+    fridge = Device(name="Fridge", watts=150.0);
+    result = simulateDay([Room(name="Bedroom", devices=[bulb, fan, socket_device, heater, fridge])]);
+    assert len(result.circuits) == 2;
     assert result.circuits[0].circuit_name == "Lights";
     assert result.circuits[0].peak_watts == 10.0;
     assert result.circuits[0].suggested_rating == 6;
     assert result.circuits[1].circuit_name == "Sockets";
-    assert result.circuits[1].peak_watts == 160.0;
-    assert result.circuits[1].suggested_rating == 6;
-    assert result.circuits[2].circuit_name == "AC";
-    assert result.circuits[2].peak_current > 5.0;
-    assert result.circuits[2].suggested_rating == 10;
-    assert not result.circuits[2].trips;
+    assert result.circuits[1].peak_watts == 1510.0;
+    assert result.circuits[1].suggested_rating == 10;
+    assert not result.circuits[1].trips;
 }
 
 test "period simulation returns daily bars for a month and monthly bars for a year" {
@@ -48,14 +46,17 @@ test "seasonal multiplier increases spring fan usage" {
     assert _season_multiplier(fan, 1) == 0.5;
 }
 
-test "kettle has a dedicated circuit with a 6 amp recommendation" {
+test "socket appliances remain grouped unless explicitly moved to a dedicated circuit" {
     kettle = Device(name="Kettle", watts=1500.0, start_minute=720, run_minutes=20);
-    result = simulateDay([Room(name="Kitchen", devices=[kettle])]);
-    assert len(result.circuits) == 1;
-    assert result.circuits[0].circuit_name == "Kettle";
-    assert result.circuits[0].peak_current > 6.0;
-    assert result.circuits[0].suggested_rating == 10;
-    assert not result.circuits[0].trips;
+    fridge = Device(name="Fridge", watts=150.0, run_minutes=1440, duty_cycle=0.4);
+    shared = simulateDay([Room(name="Kitchen", devices=[kettle, fridge])]);
+    assert len(shared.circuits) == 1;
+    assert shared.circuits[0].circuit_name == "Sockets";
+    dedicated = Device(name="Kettle (dedicated)", watts=1500.0, start_minute=720, run_minutes=20);
+    moved = simulateDay([Room(name="Kitchen", devices=[dedicated, fridge])]);
+    assert len(moved.circuits) == 2;
+    assert moved.circuits[0].circuit_name == "Kettle (dedicated)";
+    assert moved.circuits[0].suggested_rating == 10;
 }
 
 test "bulb runs only between six and eleven pm" {

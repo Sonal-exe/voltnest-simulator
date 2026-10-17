@@ -50,12 +50,12 @@ def simulateCircuit(circuit: Circuit) -> SimulationResult {
 }
 
 def _circuit_label(device: Device) -> str {
-    if device.name == "Bulb" { return "Lights"; }
+    if device.lights_only or device.name == "Bulb" { return "Lights"; }
     return "Sockets";
 }
 
 def _is_heavy_device(device: Device) -> bool {
-    return device.name == "AC" or device.name == "Water heater" or device.name == "Kettle" or device.name == "Washing machine";
+    return device.name.endswith(" (dedicated)");
 }
 
 def _rating_for_peak(peak_current: float) -> int {

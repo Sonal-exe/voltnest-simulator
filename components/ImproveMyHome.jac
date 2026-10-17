@@ -3,7 +3,7 @@ import from .ui.button { Button }
 import from .EnergyShell { EnergyShell }
 sv import from ..engine.circuits { Device }
 sv import from ..engine.simulation { ScheduleSimulationResult, simulateRoomData }
-sv import from ..agents.circuitAgent { HomeFix, recommendHomeFix }
+sv import from ..agents.circuitAgent { recommendHomeFix }
 
 def:pub ImproveMyHome() -> JsxElement {
     has room_names: list[str] = ["Room 1", "Room 2", "Room 3"];
@@ -26,7 +26,7 @@ def:pub ImproveMyHome() -> JsxElement {
     has before_kwh: float = 0.0;
     has after_kwh: float = 0.0;
     has rounds: int = 0;
-    has fixes: list[HomeFix] = [];
+    has fixes: list[dict] = [];
     has running: bool = False;
     has message: str = "Run the improvement loop to simulate the sample home.";
     has error_message: str = "";
@@ -80,30 +80,57 @@ def:pub ImproveMyHome() -> JsxElement {
                     run_minutes = device["run_minutes"] as int;
                     duty = device["duty_cycle"] as float;
                     daily_kwh = watts * duty * run_minutes / 60.0 / 1000.0;
-                    candidates.append("Room=" + room_names[room_index] + "; device=" + str(device["name"]) + "; daily kWh=" + f"{daily_kwh:.3f}" + "; watts=" + str(watts) + "; run minutes=" + str(run_minutes) + "; shared group only if lights or sockets.");
+                    kind = "LIGHTS" if (device["lights_only"] as bool) or str(device["name"]) == "Bulb" else "SOCKETS";
+                    circuit_kind = kind if not str(device["name"]).endswith(" (dedicated)") else str(device["name"]);
+                    candidates.append("Room=" + room_names[room_index] + "; type=" + kind + "; circuit=" + circuit_kind + "; device=" + str(device["name"]) + "; daily kWh=" + f"{daily_kwh:.3f}" + "; watts=" + str(watts) + "; run minutes=" + str(run_minutes) + ".");
                 }
             }
             if len(candidates) == 0 { message = "No appliances found to improve."; break; }
             suggestion: HomeFix;
             try {
-                suggestion = await recommendHomeFix(candidates);
+                raw_suggestion = await recommendHomeFix(candidates);
+                suggestion = raw_suggestion as dict;
             } except Exception {
-                error_message = "The recommendation service could not respond. Add your LLM key in Settings and try again.";
-                break;
+                # Keep the simulator useful when the provider is rate-limited: use engine results to choose a safe permitted reduction.
+                fallback_room = -1;
+                fallback_device = -1;
+                greatest_kwh = -1.0;
+                for (room_index, devices) in enumerate(working) {
+                    for (device_index, device) in enumerate(devices) {
+                        kwh = (device["watts"] as float) * (device["duty_cycle"] as float) * (device["run_minutes"] as int) / 60000.0;
+                        if kwh > greatest_kwh and (device["run_minutes"] as int) > 1 {
+                            greatest_kwh = kwh;
+                            fallback_room = room_index;
+                            fallback_device = device_index;
+                        }
+                    }
+                }
+                if fallback_room < 0 {
+                    error_message = "No supported improvement could be applied.";
+                    break;
+                }
+                fallback = working[fallback_room][fallback_device];
+                fallback["run_minutes"] = int((fallback["run_minutes"] as int) * 0.8);
+                fixes.append({"action": "shorten run time by 20%", "room_name": room_names[fallback_room], "device_name": str(fallback["name"]), "explanation": "The recommendation service is temporarily unavailable, so the simulator applied the permitted 20% runtime reduction to the highest-use device."});
+                rounds += 1;
+                current = await simulateRoomData(room_names, working);
+                after_kwh = current.total_kwh;
+                result = current;
+                continue;
             }
-            action = suggestion.action.strip().lower();
+            action = str(suggestion["action"]).strip().lower();
             if not allowed_action(action) {
                 error_message = "The recommendation was outside the allowed fixes, so no change was applied.";
                 break;
             }
             target_room = -1;
             for (room_index, room_name) in enumerate(room_names) {
-                if room_name == suggestion.room_name { target_room = room_index; }
+                if room_name == str(suggestion["room_name"]) { target_room = room_index; }
             }
             target_device = -1;
             if target_room >= 0 {
                 for (device_index, device) in enumerate(working[target_room]) {
-                    if str(device["name"]) == suggestion.device_name { target_device = device_index; }
+                    if str(device["name"]) == str(suggestion["device_name"]) { target_device = device_index; }
                 }
             }
             if target_device < 0 {
@@ -129,13 +156,14 @@ def:pub ImproveMyHome() -> JsxElement {
                 error_message = "That fix does not apply to the selected device, so it was not changed.";
                 break;
             }
-            fixes.append(HomeFix(action=action, room_name=suggestion.room_name, device_name=suggestion.device_name, explanation=suggestion.explanation));
+            fixes.append({"action": action, "room_name": str(suggestion["room_name"]), "device_name": str(suggestion["device_name"]), "explanation": str(suggestion["explanation"])});
             rounds += 1;
             current = await simulateRoomData(room_names, working);
             after_kwh = current.total_kwh;
             result = current;
         }
-        message = "Finished " + str(rounds) + " of 3 possible improvement rounds. Energy totals are recalculated by the simulator.";
+        if error_message == "" { message = "Finished " + str(rounds) + " of 3 possible improvement rounds. Energy totals are recalculated by the simulator."; }
+        elif rounds > 0 { message = "Applied " + str(rounds) + " permitted fix(es); stopped when the recommendation was not usable. Updated totals are from the simulator."; }
         running = False;
     }
 
@@ -154,7 +182,7 @@ def:pub ImproveMyHome() -> JsxElement {
                         </div>
                     }}
                     {if len(fixes) > 0 {
-                        <div className="flex flex-col gap-2 border-t border-violet-200/10 pt-4"><h2 className="font-medium text-slate-100">Applied suggestions</h2>{for (index, fix) in enumerate(fixes) { <div key={str(index)} className="rounded-lg border border-violet-200/10 bg-[#0d0917]/80 p-3"><p className="text-sm font-medium text-cyan-100">{fix.room_name + " · " + fix.device_name + " · " + fix.action}</p><p className="mt-1 text-sm text-slate-400">{fix.explanation}</p></div> }}</div>
+                        <div className="flex flex-col gap-2 border-t border-violet-200/10 pt-4"><h2 className="font-medium text-slate-100">Applied suggestions</h2>{for (index, fix) in enumerate(fixes) { <div key={str(index)} className="rounded-lg border border-violet-200/10 bg-[#0d0917]/80 p-3"><p className="text-sm font-medium text-cyan-100">{str(fix["room_name"]) + " · " + str(fix["device_name"]) + " · " + str(fix["action"])}</p><p className="mt-1 text-sm text-slate-400">{str(fix["explanation"])}</p></div> }}</div>
                     }}
                 </CardContent>
             </Card>

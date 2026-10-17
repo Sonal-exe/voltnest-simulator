@@ -55,6 +55,6 @@ def simulateDay(rooms: list[Room]) -> ScheduleSimulationResult {
     return ScheduleSimulationResult(step_loads=step_loads, total_kwh=total_kwh);
 }
 
-def:pub simulateHomeDay(rooms: list[Room]) -> ScheduleSimulationResult {
-    return simulateDay(rooms);
+def:pub simulateHomeDay(devices: list[Device]) -> ScheduleSimulationResult {
+    return simulateDay([Room(name="Home", devices=devices)]);
 }

@@ -1,6 +1,6 @@
 import from .ui.card { Card, CardContent, CardHeader, CardTitle, CardDescription }
 import from .ui.button { Button }
-sv import from ..engine.circuits { Device, Room, getApplianceLibrary }
+sv import from ..engine.circuits { Device, getApplianceLibrary }
 sv import from ..engine.simulation { ScheduleSimulationResult, simulateHomeDay }
 
 def:pub VoltnestHome() -> JsxElement {
@@ -47,7 +47,7 @@ def:pub VoltnestHome() -> JsxElement {
             error_message = "Choose at least one appliance to run the simulation.";
             result = None;
         } else {
-            result = await simulateHomeDay([Room(name="Home", devices=devices)]);
+            result = await simulateHomeDay(devices);
             error_message = "";
         }
     }

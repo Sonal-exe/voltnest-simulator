@@ -7,7 +7,7 @@ import from .ui.card { Card, CardContent, CardHeader, CardTitle, CardDescription
                 <div className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
                     <span className="text-lg font-bold">V</span>
                 </div>
-                <span className="text-base font-semibold tracking-tight">Voltnest</span>
+                <span className="text-2xl font-bold tracking-tight">Voltnest</span>
                 <span className="ml-auto hidden text-sm text-muted-foreground sm:block">Home circuit simulator</span>
             </div>
         </header>

@@ -14,7 +14,7 @@ api_key = "${OPENAI_API_KEY:-}"
 [jac-shadcn]
 style = "nova"
 baseColor = "zinc"
-theme = "teal"
+theme = "violet"
 font = "geist"
 radius = "medium"
 menuAccent = "subtle"

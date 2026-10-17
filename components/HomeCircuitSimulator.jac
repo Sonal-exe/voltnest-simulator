@@ -148,23 +148,33 @@ def:pub HomeCircuitSimulator() -> JsxElement {
 
     def chart_bars() -> JsxElement {
         if simulation_mode == "day" {
-            loads: list[dict] = [];
-            if simulation_result["step_loads"] { loads = simulation_result["step_loads"] as list[dict]; }
-            maximum: float = 1.0;
-            for load in loads { value = load["watts"] as float; if value > maximum { maximum = value; } }
-            return <div className="flex h-48 w-full min-w-0 items-end gap-px overflow-hidden rounded-xl border border-violet-200/15 bg-[#0b0813]/90 p-2">{for (index, load) in enumerate(loads) { height = 100.0 * (load["watts"] as float) / maximum; <div key={str(index)} title={str(load["minute"]) + " min · " + str(load["watts"]) + " W"} className="min-w-1 flex-1 rounded-t-sm bg-gradient-to-t from-violet-700 via-violet-400 to-cyan-300" style={{"height": f"{height:.0f}%"}} /> }}</div>;
+            return <div className="flex h-48 w-full min-w-0 items-center justify-center overflow-hidden rounded-xl border border-violet-200/15 bg-[#0b0813]/90 p-2"><p className="text-xs text-slate-400">Daily load timeline is in the 24-hour view above.</p></div>;
         }
-        bars: list[dict] = [];
-        if simulation_result["bars"] { bars = simulation_result["bars"] as list[dict]; }
-        maximum_kwh: float = 0.01;
-        for bar in bars { value = bar["kwh"] as float; if value > maximum_kwh { maximum_kwh = value; } }
-        return <div className="flex h-48 w-full min-w-0 items-end gap-px overflow-hidden rounded-xl border border-violet-200/15 bg-[#0b0813]/90 p-2">{for (index, bar) in enumerate(bars) { height = 100.0 * (bar["kwh"] as float) / maximum_kwh; <div key={str(index)} title={str(bar["label"]) + " · " + str(bar["kwh"]) + " kWh"} className="min-w-2 flex-1 rounded-t-sm bg-gradient-to-t from-violet-700 to-cyan-300" style={{"height": f"{height:.0f}%"}} /> }}</div>;
+        bars: list[dict] = simulation_result["bars"] as list[dict];
+        return <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+            {for (index, bar) in enumerate(bars) {
+                kwh = bar["kwh"] as float;
+                <div key={str(index)} className="rounded-lg border border-violet-200/10 bg-[#0d0917]/80 p-2 text-center">
+                    <p className="text-[10px] text-slate-400">{str(bar["label"])}</p>
+                    <p className="text-xs font-semibold text-cyan-200">{f"{kwh:.1f} kWh"}</p>
+                </div>
+            }}
+        </div>;
     }
 
     def circuit_rows() -> JsxElement {
-        circuits: list[dict] = [];
-        if simulation_result["circuits"] { circuits = simulation_result["circuits"] as list[dict]; }
-        return <div className="flex flex-col gap-3 border-t border-violet-200/10 pt-4"><h3 className="font-medium text-slate-100">Suggested circuits</h3>{for (idx, circuit) in enumerate(circuits) { <div key={str(idx)} className="rounded-lg border border-violet-200/10 bg-[#0d0917]/80 p-3"><p className="font-medium text-slate-100">{str(circuit["room_name"]) + " · " + str(circuit["circuit_name"])}</p><p className="text-sm text-cyan-200">{str(circuit["suggested_rating"]) + " A"}</p><p className="text-xs text-slate-400">{str(circuit["reason"])}</p>{if circuit["trips"] as bool { <p className="text-xs font-semibold text-rose-300">Warning: switch trips at peak load.</p> }}</div> }}</div>;
+        circuits: list[dict] = simulation_result["circuits"] as list[dict];
+        return <div className="flex flex-col gap-3 border-t border-violet-200/10 pt-4">
+            <h3 className="font-medium text-slate-100">Suggested circuits</h3>
+            {for (idx, circuit) in enumerate(circuits) {
+                <div key={str(idx)} className="rounded-lg border border-violet-200/10 bg-[#0d0917]/80 p-3">
+                    <p className="font-medium text-slate-100">{str(circuit["room_name"]) + " · " + str(circuit["circuit_name"])}</p>
+                    <p className="text-sm text-cyan-200">{str(circuit["suggested_rating"]) + " A"}</p>
+                    <p className="text-xs text-slate-400">{str(circuit["reason"])}</p>
+                    {if circuit["trips"] as bool { <p className="text-xs font-semibold text-rose-300">Warning: switch trips at peak load.</p> }}
+                </div>
+            }}
+        </div>;
     }
 
     def handle_house_description(e: ChangeEvent) { house_description = e.target.value; plan_error = ""; }

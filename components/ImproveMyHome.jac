@@ -179,6 +179,7 @@ def:pub ImproveMyHome() -> JsxElement {
             }
             fixes.append({"action": action, "room_name": str(suggestion["room_name"]), "device_name": str(suggestion["device_name"]), "explanation": str(suggestion["explanation"])});
             rounds += 1;
+            completed_rounds += 1;
             current = await simulateRoomData(room_names, working);
             after_kwh = current.total_kwh;
             result = current;
@@ -200,10 +201,19 @@ def:pub ImproveMyHome() -> JsxElement {
                     <div className="flex flex-wrap items-center gap-3"><Button onClick={improve_home} disabled={running}>{"Simulating…" if running else "Run improvement loop"}</Button><p className="text-sm text-slate-300">{message}</p></div>
                     {if error_message != "" { <p role="alert" className="text-sm text-rose-300">{error_message}</p> }}
                     {if result is not None {
+                        saved_kwh = before_kwh - after_kwh;
+                        saved_percent = saved_kwh * 100.0 / before_kwh if before_kwh > 0.0 else 0.0;
                         <div className="grid gap-3 sm:grid-cols-2">
                             <div className="rounded-xl border border-violet-200/15 bg-[#0d0917]/80 p-4"><p className="text-xs uppercase tracking-wide text-slate-400">Before changes · daily</p><p className="mt-2 text-3xl font-semibold tabular-nums text-white">{f"{before_kwh:.3f} kWh"}</p></div>
                             <div className="rounded-xl border border-cyan-200/20 bg-cyan-300/5 p-4"><p className="text-xs uppercase tracking-wide text-slate-400">After changes · daily</p><p className="mt-2 text-3xl font-semibold tabular-nums text-cyan-100">{f"{after_kwh:.3f} kWh"}</p></div>
                         </div>
+                        if saved_kwh > 0.0005 {
+                            <p className="rounded-lg border border-emerald-300/20 bg-emerald-400/5 px-4 py-3 text-sm font-medium text-emerald-200">Improvement: {f"{saved_kwh:.3f} kWh/day saved"} ({f"{saved_percent:.1f}% less"})</p>
+                        } elif saved_kwh < -0.0005 {
+                            <p className="rounded-lg border border-amber-300/20 bg-amber-400/5 px-4 py-3 text-sm font-medium text-amber-200">Usage increased by {f"{-saved_kwh:.3f} kWh/day"}. Review the applied circuit change and load estimate.</p>
+                        } else {
+                            <p className="rounded-lg border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-slate-300">No kWh reduction from these changes; the measured difference is less than 0.001 kWh/day.</p>
+                        }
                     }}
                     {if len(fixes) > 0 {
                         <div className="flex flex-col gap-2 border-t border-violet-200/10 pt-4"><h2 className="font-medium text-slate-100">Applied suggestions</h2>{for (index, fix) in enumerate(fixes) { <div key={str(index)} className="rounded-lg border border-violet-200/10 bg-[#0d0917]/80 p-3"><p className="text-sm font-medium text-cyan-100">{str(fix["room_name"]) + " · " + str(fix["device_name"]) + " · " + str(fix["action"])}</p><p className="mt-1 text-sm text-slate-400">{str(fix["explanation"])}</p></div> }}</div>

@@ -1,4 +1,4 @@
-import from engine.circuits { Circuit, Device, Room }
+import from engine.circuits { Circuit, Device, Room, APPLIANCE_LIBRARY }
 
 obj SimulationResult {
     has circuit_name: str = "";
@@ -36,9 +36,11 @@ def simulateDay(rooms: list[Room]) -> ScheduleSimulationResult {
                 if device.lights_only and (minute < 1080 or minute >= 1380) {
                     active_minutes = 0;
                 } elif device.run_minutes < 1440 {
-                    overlap_start = minute if minute > device.start_minute else device.start_minute;
+                    interval_start = minute;
                     interval_end = minute + 15;
+                    device_start = device.start_minute;
                     device_end = device.start_minute + device.run_minutes;
+                    overlap_start = interval_start if interval_start > device_start else device_start;
                     overlap_end = interval_end if interval_end < device_end else device_end;
                     active_minutes = overlap_end - overlap_start;
                     if active_minutes < 0 { active_minutes = 0; }
@@ -76,4 +78,14 @@ def:pub simulateRoomData(room_names: list[str], room_devices: list[list[dict]]) 
         rooms.append(Room(name=room_name, devices=devices));
     }
     return simulateDay(rooms);
+}
+
+def:pub simulateApplianceNames(appliance_names: list[str]) -> ScheduleSimulationResult {
+    devices: list[Device] = [];
+    for appliance_name in appliance_names {
+        for device in APPLIANCE_LIBRARY {
+            if device.name == appliance_name { devices.append(device); }
+        }
+    }
+    return simulateDay([Room(name="Home", devices=devices)]);
 }

@@ -1,7 +1,7 @@
 import ".styles.global.css";
 import from "@jac/runtime" { Router, Routes, Route }
 import from engine.circuits { getApplianceLibrary }
-import from engine.simulation { simulateHomeDay, simulateRoomData }
+import from engine.simulation { simulateHomeDay, simulateRoomData, simulateApplianceNames }
 import from .components.VoltnestHome { VoltnestHome }
 import from .components.HomeCircuitSimulator { HomeCircuitSimulator }
 

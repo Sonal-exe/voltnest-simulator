@@ -2,7 +2,7 @@ import from .ui.card { Card, CardContent, CardHeader, CardTitle, CardDescription
 import from .ui.button { Button }
 import from "@jac/runtime" { Link }
 sv import from ..engine.circuits { Device, getApplianceLibrary }
-sv import from ..engine.simulation { ScheduleSimulationResult, simulateHomeDay }
+sv import from ..engine.simulation { ScheduleSimulationResult, simulateApplianceNames }
 
 def:pub VoltnestHome() -> JsxElement {
     has library: list[Device] = [];
@@ -38,17 +38,11 @@ def:pub VoltnestHome() -> JsxElement {
     }
 
     async def run_simulation {
-        devices: list[Device] = [];
-        for device in library {
-            for selected_name in selected_names {
-                if device.name == selected_name { devices = devices + [device]; }
-            }
-        }
-        if len(devices) == 0 {
+        if len(selected_names) == 0 {
             error_message = "Choose at least one appliance to run the simulation.";
             result = None;
         } else {
-            result = await simulateHomeDay(devices);
+            result = await simulateApplianceNames(selected_names);
             error_message = "";
         }
     }

@@ -27,6 +27,18 @@ def:pub HomeCircuitSimulator() -> JsxElement {
 
     async can with entry {
         library = await getApplianceLibrary();
+        saved_home = localStorage.getItem("voltnest_home_setup");
+        if saved_home {
+            try {
+                saved = JSON.parse(saved_home);
+                saved_names = saved["room_names"] as list[str];
+                saved_devices = saved["room_devices"] as list[list[dict]];
+                if len(saved_names) > 0 and len(saved_names) == len(saved_devices) {
+                    room_names = saved_names;
+                    room_devices = saved_devices;
+                }
+            } except Exception { }
+        }
         loading = False;
     }
 
@@ -84,6 +96,7 @@ def:pub HomeCircuitSimulator() -> JsxElement {
             if len(new_names) > 0 {
                 room_names = new_names;
                 room_devices = new_devices;
+                localStorage.setItem("voltnest_home_setup", JSON.stringify({"room_names": new_names, "room_devices": new_devices}));
                 simulation_result = {};
                 has_result = False;
                 plan = None;
@@ -100,6 +113,7 @@ def:pub HomeCircuitSimulator() -> JsxElement {
         else {
             room_names = room_names + [name];
             room_devices = room_devices + [[]];
+            localStorage.setItem("voltnest_home_setup", JSON.stringify({"room_names": room_names, "room_devices": room_devices}));
             room_name_input = "";
             error_message = "";
         }
@@ -126,6 +140,7 @@ def:pub HomeCircuitSimulator() -> JsxElement {
                     else { updated_rooms = updated_rooms + [devices]; }
                 }
                 room_devices = updated_rooms;
+                localStorage.setItem("voltnest_home_setup", JSON.stringify({"room_names": room_names, "room_devices": updated_rooms}));
                 simulation_result = {};
                 has_result = False;
                 error_message = "";

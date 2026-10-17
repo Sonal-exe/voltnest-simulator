@@ -6,22 +6,8 @@ sv import from ..engine.simulation { ScheduleSimulationResult, simulateRoomData 
 sv import from ..agents.circuitAgent { recommendHomeFix }
 
 def:pub ImproveMyHome() -> JsxElement {
-    has room_names: list[str] = ["Room 1", "Room 2", "Room 3"];
-    has room_devices: list[list[dict]] = [
-        [
-            {"name": "Bulb", "watts": 10.0, "start_minute": 1080, "run_minutes": 300, "duty_cycle": 1.0, "lights_only": True},
-            {"name": "Fan", "watts": 60.0, "start_minute": 0, "run_minutes": 600, "duty_cycle": 1.0, "lights_only": False},
-            {"name": "Kettle", "watts": 1500.0, "start_minute": 720, "run_minutes": 45, "duty_cycle": 1.0, "lights_only": False}
-        ],
-        [
-            {"name": "Bulb", "watts": 10.0, "start_minute": 1080, "run_minutes": 300, "duty_cycle": 1.0, "lights_only": True},
-            {"name": "Fridge", "watts": 150.0, "start_minute": 0, "run_minutes": 1440, "duty_cycle": 0.4, "lights_only": False}
-        ],
-        [
-            {"name": "Bulb", "watts": 10.0, "start_minute": 1080, "run_minutes": 300, "duty_cycle": 1.0, "lights_only": True},
-            {"name": "Fan", "watts": 60.0, "start_minute": 0, "run_minutes": 720, "duty_cycle": 1.0, "lights_only": False}
-        ]
-    ];
+    has room_names: list[str] = [];
+    has room_devices: list[list[dict]] = [];
     has result: ScheduleSimulationResult | None = None;
     has before_kwh: float = 0.0;
     has after_kwh: float = 0.0;
@@ -30,6 +16,21 @@ def:pub ImproveMyHome() -> JsxElement {
     has running: bool = False;
     has message: str = "Run the improvement loop to simulate the sample home.";
     has error_message: str = "";
+
+    async can with entry {
+        saved_home = localStorage.getItem("voltnest_home_setup");
+        if saved_home {
+            try {
+                saved = JSON.parse(saved_home);
+                names = saved["room_names"] as list[str];
+                devices = saved["room_devices"] as list[list[dict]];
+                if len(names) == len(devices) {
+                    room_names = names;
+                    room_devices = devices;
+                }
+            } except Exception { }
+        }
+    }
 
     def copy_rooms(source: list[list[dict]]) -> list[list[dict]] {
         copied: list[list[dict]] = [];
@@ -52,12 +53,20 @@ def:pub ImproveMyHome() -> JsxElement {
         error_message = "";
         message = "Simulating the current room loads…";
         fixes = [];
+        used_fallback = False;
         rounds = 0;
+        completed_rounds = 0;
+        if len(room_names) == 0 or len(room_devices) == 0 {
+            message = "Build and accept a home in Energy predictor first.";
+            running = False;
+            return;
+        }
         working = copy_rooms(room_devices);
         current = await simulateRoomData(room_names, working);
         before_kwh = current.total_kwh;
         after_kwh = current.total_kwh;
         result = current;
+        attempted_fixes: list[str] = [];
         while rounds < 3 {
             has_any_device = False;
             for room in working { if len(room) > 0 { has_any_device = True; } }
@@ -86,19 +95,22 @@ def:pub ImproveMyHome() -> JsxElement {
                 }
             }
             if len(candidates) == 0 { message = "No appliances found to improve."; break; }
-            suggestion: HomeFix;
+            suggestion: dict = {};
             try {
                 raw_suggestion = await recommendHomeFix(candidates);
                 suggestion = raw_suggestion as dict;
             } except Exception {
-                # Keep the simulator useful when the provider is rate-limited: use engine results to choose a safe permitted reduction.
+                # A provider failure gets at most one safe fallback action.
+                if used_fallback { break; }
+                used_fallback = True;
                 fallback_room = -1;
                 fallback_device = -1;
                 greatest_kwh = -1.0;
                 for (room_index, devices) in enumerate(working) {
                     for (device_index, device) in enumerate(devices) {
                         kwh = (device["watts"] as float) * (device["duty_cycle"] as float) * (device["run_minutes"] as int) / 60000.0;
-                        if kwh > greatest_kwh and (device["run_minutes"] as int) > 1 {
+                        fix_key = room_names[room_index] + "|" + str(device["name"]) + "|runtime";
+                        if kwh > greatest_kwh and (device["run_minutes"] as int) >= 100 and fix_key not in attempted_fixes {
                             greatest_kwh = kwh;
                             fallback_room = room_index;
                             fallback_device = device_index;
@@ -106,17 +118,20 @@ def:pub ImproveMyHome() -> JsxElement {
                     }
                 }
                 if fallback_room < 0 {
-                    error_message = "No supported improvement could be applied.";
+                    message = "No new permitted fix remains for this home.";
                     break;
                 }
                 fallback = working[fallback_room][fallback_device];
+                fallback_key = room_names[fallback_room] + "|" + str(fallback["name"]) + "|runtime";
+                attempted_fixes.append(fallback_key);
                 fallback["run_minutes"] = int((fallback["run_minutes"] as int) * 0.8);
                 fixes.append({"action": "shorten run time by 20%", "room_name": room_names[fallback_room], "device_name": str(fallback["name"]), "explanation": "The recommendation service is temporarily unavailable, so the simulator applied the permitted 20% runtime reduction to the highest-use device."});
                 rounds += 1;
+                completed_rounds += 1;
                 current = await simulateRoomData(room_names, working);
                 after_kwh = current.total_kwh;
                 result = current;
-                continue;
+                break;
             }
             action = str(suggestion["action"]).strip().lower();
             if not allowed_action(action) {
@@ -138,6 +153,12 @@ def:pub ImproveMyHome() -> JsxElement {
                 break;
             }
             chosen = working[target_room][target_device];
+            fix_key = room_names[target_room] + "|" + str(chosen["name"]) + "|" + action;
+            if fix_key in attempted_fixes {
+                error_message = "No new permitted improvement remains for the selected device.";
+                break;
+            }
+            attempted_fixes.append(fix_key);
             applied = False;
             if action == "swap bulbs to led" and str(chosen["name"]) == "Bulb" and (chosen["watts"] as float) == 10.0 {
                 chosen["watts"] = 5.0;
@@ -162,8 +183,11 @@ def:pub ImproveMyHome() -> JsxElement {
             after_kwh = current.total_kwh;
             result = current;
         }
-        if error_message == "" { message = "Finished " + str(rounds) + " of 3 possible improvement rounds. Energy totals are recalculated by the simulator."; }
-        elif rounds > 0 { message = "Applied " + str(rounds) + " permitted fix(es); stopped when the recommendation was not usable. Updated totals are from the simulator."; }
+        if error_message == "" {
+            message = "Finished " + str(completed_rounds) + " of 3 improvement rounds. Each eligible device was changed at most once; totals are recalculated by the simulator.";
+        } elif rounds > 0 {
+            message = "Applied " + str(completed_rounds) + " permitted fix(es), then stopped because no new eligible fix remained. Updated totals are from the simulator.";
+        }
         running = False;
     }
 

@@ -84,18 +84,17 @@ def _circuit_advice(rooms: list[Room]) -> list[CircuitAdvice] {
                 for device in room.devices {
                     belongs = device.name == group if _is_heavy_device(device) else _circuit_label(device) == group;
                     if belongs {
-                        active_minutes = 15;
-                        if device.lights_only and (minute < 1080 or minute >= 1380) {
-                            active_minutes = 0;
-                        } elif device.run_minutes < 1440 {
-                            interval_end = minute + 15;
-                            device_end = device.start_minute + device.run_minutes;
-                            start = minute if minute > device.start_minute else device.start_minute;
-                            finish = interval_end if interval_end < device_end else device_end;
-                            active_minutes = finish - start;
-                            if active_minutes < 0 { active_minutes = 0; }
-                            if active_minutes > 15 { active_minutes = 15; }
+                        active_minutes = 0;
+                        interval_end = minute + 15;
+                        for offset in [-1440, 0, 1440] {
+                            start_at = device.start_minute + offset;
+                            end_at = start_at + device.run_minutes;
+                            overlap_start = minute if minute > start_at else start_at;
+                            overlap_end = interval_end if interval_end < end_at else end_at;
+                            overlap = overlap_end - overlap_start;
+                            if overlap > 0 { active_minutes += overlap; }
                         }
+                        if active_minutes > 15 { active_minutes = 15; }
                         if active_minutes > 0 {
                             load_watts = load_watts + device.watts * device.duty_cycle * active_minutes / 15.0;
                         }
@@ -122,20 +121,17 @@ def simulateDay(rooms: list[Room]) -> ScheduleSimulationResult {
         step_watts: float = 0.0;
         for room in rooms {
             for device in room.devices {
-                active_minutes = 15;
-                if device.lights_only and (minute < 1080 or minute >= 1380) {
-                    active_minutes = 0;
-                } elif device.run_minutes < 1440 {
-                    interval_start = minute;
-                    interval_end = minute + 15;
-                    device_start = device.start_minute;
-                    device_end = device.start_minute + device.run_minutes;
-                    overlap_start = interval_start if interval_start > device_start else device_start;
+                active_minutes = 0;
+                interval_end = minute + 15;
+                for offset in [-1440, 0, 1440] {
+                    device_start = device.start_minute + offset;
+                    device_end = device_start + device.run_minutes;
+                    overlap_start = minute if minute > device_start else device_start;
                     overlap_end = interval_end if interval_end < device_end else device_end;
-                    active_minutes = overlap_end - overlap_start;
-                    if active_minutes < 0 { active_minutes = 0; }
-                    if active_minutes > 15 { active_minutes = 15; }
+                    overlap = overlap_end - overlap_start;
+                    if overlap > 0 { active_minutes += overlap; }
                 }
+                if active_minutes > 15 { active_minutes = 15; }
                 if active_minutes > 0 {
                     step_watts = step_watts + device.watts * device.duty_cycle * active_minutes / 15.0;
                 }
@@ -152,23 +148,15 @@ def:pub simulateHomeDay(devices: list[Device]) -> ScheduleSimulationResult {
 }
 
 def _season_multiplier(device: Device, month: int) -> float {
-    if device.name == "AC" or device.name == "Fan" {
-        if month >= 3 and month <= 5 { return 1.5; }
-        if month == 12 or month <= 2 { return 0.5; }
-    }
     return 1.0;
 }
 
 def _adjusted_rooms(rooms: list[Room], month: int, day: int, winter: bool) -> list[Room] {
     adjusted_rooms: list[Room] = [];
-    weekend = day % 7 == 5 or day % 7 == 6;
     for room in rooms {
         adjusted_devices: list[Device] = [];
         for device in room.devices {
             hours_multiplier = _season_multiplier(device, month);
-            if weekend and (device.name == "Washing machine" or device.name == "TV") {
-                hours_multiplier = hours_multiplier * 1.3;
-            }
             adjusted_run = int(device.run_minutes * hours_multiplier);
             if adjusted_run > 1440 { adjusted_run = 1440; }
             adjusted_start = device.start_minute;
@@ -202,8 +190,8 @@ def:pub simulatePeriod(room_names: list[str], room_devices: list[list[dict]], mo
     circuits = _circuit_advice(rooms);
     if mode == "month" {
         for day in range(30) {
-            month = (day // 30) + 1;
-            adjusted = _adjusted_rooms(rooms, month, day, month >= 10 or month <= 2);
+            month = 1;
+            adjusted = _adjusted_rooms(rooms, month, day, False);
             day_result = simulateDay(adjusted);
             bars.append(PeriodBar(label="Day " + str(day + 1), kwh=day_result.total_kwh));
             total_kwh += day_result.total_kwh;
@@ -214,7 +202,7 @@ def:pub simulatePeriod(room_names: list[str], room_devices: list[list[dict]], mo
         for month_index in range(12) {
             month = month_index + 1;
             for day in range(days_in_month[month_index]) {
-                adjusted = _adjusted_rooms(rooms, month, day, month >= 10 or month <= 2);
+                adjusted = _adjusted_rooms(rooms, month, day, False);
                 day_result = simulateDay(adjusted);
                 month_totals[month_index] = month_totals[month_index] + day_result.total_kwh;
                 total_kwh += day_result.total_kwh;

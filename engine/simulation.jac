@@ -21,10 +21,24 @@ obj CircuitAdvice {
     has reason: str = "";
 }
 
+obj PeriodBar {
+    has label: str;
+    has kwh: float;
+}
+
+obj PeriodSimulationResult {
+    has mode: str;
+    has total_kwh: float = 0.0;
+    has bars: list[PeriodBar] = [];
+    has circuits: list[CircuitAdvice] = [];
+}
+
 obj ScheduleSimulationResult {
     has step_loads: list[StepLoad] = [];
     has total_kwh: float = 0.0;
     has circuits: list[CircuitAdvice] = [];
+    has projection: PeriodSimulationResult = PeriodSimulationResult(mode="day");
+    has estimated_cost: float | None = None;
 }
 
 def simulateCircuit(circuit: Circuit) -> SimulationResult {
@@ -135,6 +149,87 @@ def simulateDay(rooms: list[Room]) -> ScheduleSimulationResult {
 
 def:pub simulateHomeDay(devices: list[Device]) -> ScheduleSimulationResult {
     return simulateDay([Room(name="Home", devices=devices)]);
+}
+
+def _season_multiplier(device: Device, month: int) -> float {
+    if device.name == "AC" or device.name == "Fan" {
+        if month >= 3 and month <= 5 { return 1.5; }
+        if month == 12 or month <= 2 { return 0.5; }
+    }
+    return 1.0;
+}
+
+def _adjusted_rooms(rooms: list[Room], month: int, day: int, winter: bool) -> list[Room] {
+    adjusted_rooms: list[Room] = [];
+    weekend = day % 7 == 5 or day % 7 == 6;
+    for room in rooms {
+        adjusted_devices: list[Device] = [];
+        for device in room.devices {
+            hours_multiplier = _season_multiplier(device, month);
+            if weekend and (device.name == "Washing machine" or device.name == "TV") {
+                hours_multiplier = hours_multiplier * 1.3;
+            }
+            adjusted_run = int(device.run_minutes * hours_multiplier);
+            if adjusted_run > 1440 { adjusted_run = 1440; }
+            adjusted_start = device.start_minute;
+            if winter and device.lights_only { adjusted_start = 1020; }
+            adjusted_devices.append(Device(name=device.name, watts=device.watts, start_minute=adjusted_start, run_minutes=adjusted_run, duty_cycle=device.duty_cycle, lights_only=device.lights_only));
+        }
+        adjusted_rooms.append(Room(name=room.name, devices=adjusted_devices));
+    }
+    return adjusted_rooms;
+}
+
+def:pub simulatePeriod(room_names: list[str], room_devices: list[list[dict]], mode: str, price_per_kwh: float) -> dict {
+    rooms: list[Room] = [];
+    for (index, room_name) in enumerate(room_names) {
+        devices: list[Device] = [];
+        for item in room_devices[index] {
+            devices.append(Device(name=item["name"] as str, watts=item["watts"] as float, start_minute=item["start_minute"] as int, run_minutes=item["run_minutes"] as int, duty_cycle=item["duty_cycle"] as float, lights_only=item["lights_only"] as bool));
+        }
+        rooms.append(Room(name=room_name, devices=devices));
+    }
+    if mode == "day" {
+        day_result = simulateDay(rooms);
+        daily_rows: list[dict] = [];
+        advice_rows: list[dict] = [];
+        for load in day_result.step_loads { daily_rows.append({"minute": load.minute, "watts": load.watts}); }
+        for item in day_result.circuits { advice_rows.append({"room_name": item.room_name, "circuit_name": item.circuit_name, "peak_watts": item.peak_watts, "peak_current": item.peak_current, "suggested_rating": item.suggested_rating, "trips": item.trips, "reason": item.reason}); }
+        return {"mode": mode, "total_kwh": day_result.total_kwh, "step_loads": daily_rows, "bars": [], "estimated_cost": (day_result.total_kwh * price_per_kwh if price_per_kwh > 0.0 else None), "circuits": advice_rows};
+    }
+    bars: list[PeriodBar] = [];
+    total_kwh: float = 0.0;
+    circuits = _circuit_advice(rooms);
+    if mode == "month" {
+        for day in range(30) {
+            month = (day // 30) + 1;
+            adjusted = _adjusted_rooms(rooms, month, day, month >= 10 or month <= 2);
+            day_result = simulateDay(adjusted);
+            bars.append(PeriodBar(label="Day " + str(day + 1), kwh=day_result.total_kwh));
+            total_kwh += day_result.total_kwh;
+        }
+    } else {
+        month_totals: list[float] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+        days_in_month: list[int] = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+        for month_index in range(12) {
+            month = month_index + 1;
+            for day in range(days_in_month[month_index]) {
+                adjusted = _adjusted_rooms(rooms, month, day, month >= 10 or month <= 2);
+                day_result = simulateDay(adjusted);
+                month_totals[month_index] = month_totals[month_index] + day_result.total_kwh;
+                total_kwh += day_result.total_kwh;
+            }
+            labels: list[str] = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+            bars.append(PeriodBar(label=labels[month_index], kwh=month_totals[month_index]));
+        }
+    }
+    cost: float | None = None;
+    if price_per_kwh > 0.0 { cost = total_kwh * price_per_kwh; }
+    bar_rows: list[dict] = [];
+    advice_rows: list[dict] = [];
+    for bar in bars { bar_rows.append({"label": bar.label, "kwh": bar.kwh}); }
+    for item in circuits { advice_rows.append({"room_name": item.room_name, "circuit_name": item.circuit_name, "peak_watts": item.peak_watts, "peak_current": item.peak_current, "suggested_rating": item.suggested_rating, "trips": item.trips, "reason": item.reason}); }
+    return {"mode": mode, "total_kwh": total_kwh, "step_loads": [], "bars": bar_rows, "estimated_cost": cost, "circuits": advice_rows};
 }
 
 def:pub simulateRoomData(room_names: list[str], room_devices: list[list[dict]]) -> ScheduleSimulationResult {

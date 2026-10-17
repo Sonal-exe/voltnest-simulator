@@ -30,6 +30,24 @@ test "circuits group lights sockets and heavy appliances with standard ratings" 
     assert not result.circuits[2].trips;
 }
 
+test "period simulation returns daily bars for a month and monthly bars for a year" {
+    names: list[str] = ["Room"];
+    appliance = {"name": "Fan", "watts": 60.0, "start_minute": 0, "run_minutes": 1440, "duty_cycle": 1.0, "lights_only": False};
+    devices: list[list[dict]] = [[appliance]];
+    month_result = simulatePeriod(names, devices, "month", 0.25);
+    year_result = simulatePeriod(names, devices, "year", 0.25);
+    assert len(month_result["bars"]) == 30;
+    assert len(year_result["bars"]) == 12;
+    assert month_result["total_kwh"] > 0.0;
+    assert month_result["estimated_cost"] is not None;
+}
+
+test "seasonal multiplier increases spring fan usage" {
+    fan = Device(name="Fan", watts=60.0);
+    assert _season_multiplier(fan, 4) == 1.5;
+    assert _season_multiplier(fan, 1) == 0.5;
+}
+
 test "kettle has a dedicated circuit with a 6 amp recommendation" {
     kettle = Device(name="Kettle", watts=1500.0, start_minute=720, run_minutes=20);
     result = simulateDay([Room(name="Kitchen", devices=[kettle])]);

@@ -4,12 +4,18 @@ import from .ui.button { Button }
 import from .EnergyShell { EnergyShell }
 sv import from ..engine.circuits { Device, getApplianceLibrary }
 sv import from ..engine.simulation { ScheduleSimulationResult, simulateRoomData }
+sv import from ..engine.housePlan { HousePlan, parseHouseDescription }
 
 def:pub HomeCircuitSimulator() -> JsxElement {
     has library: list[Device] = [];
     has room_names: list[str] = ["Living room"];
     has room_devices: list[list[dict]] = [[]];
     has room_name_input: str = "";
+    has house_description: str = "";
+    has plan: HousePlan | None = None;
+    has plan_error: str = "";
+    has parsing: bool = False;
+    has editing_plan: bool = False;
     has watts_input: str = "";
     has hours_input: str = "";
     has pending_device: Device | None = None;
@@ -20,6 +26,82 @@ def:pub HomeCircuitSimulator() -> JsxElement {
     async can with entry {
         library = await getApplianceLibrary();
         loading = False;
+    }
+
+    async def understand_house {
+        if house_description.strip() == "" {
+            plan_error = "Describe your rooms and appliances first.";
+            plan = None;
+        } else {
+            parsing = True;
+            plan_error = "";
+            try {
+                plan = await parseHouseDescription(house_description);
+                editing_plan = False;
+            } except Exception {
+                plan = None;
+                plan_error = "I could not understand that description. Try a sample house below.";
+            }
+            parsing = False;
+        }
+    }
+
+    def edit_plan {
+        if plan is not None {
+            editable_text = "";
+            for room in plan.rooms {
+                editable_text = editable_text + room.name + " with ";
+                for (index, item) in enumerate(room.devices) {
+                    if index > 0 { editable_text = editable_text + ", "; }
+                    editable_text = editable_text + str(item.count) + " " + item.name;
+                }
+                editable_text = editable_text + ". ";
+            }
+            house_description = editable_text.strip();
+            plan = None;
+            editing_plan = True;
+        }
+    }
+
+    def accept_plan {
+        if plan is not None {
+            new_names: list[str] = [];
+            new_devices: list[list[dict]] = [];
+            for room in plan.rooms {
+                new_names.append(room.name);
+                devices: list[dict] = [];
+                for item in room.devices {
+                    for estimate in library {
+                        if estimate.name == item.name {
+                            for copy_index in range(item.count) {
+                                devices.append({
+                                    "name": estimate.name,
+                                    "watts": estimate.watts,
+                                    "start_minute": estimate.start_minute,
+                                    "run_minutes": estimate.run_minutes,
+                                    "duty_cycle": estimate.duty_cycle,
+                                    "lights_only": estimate.lights_only
+                                });
+                            }
+                        }
+                    }
+                }
+                new_devices.append(devices);
+            }
+            if len(new_names) > 0 {
+                room_names = new_names;
+                room_devices = new_devices;
+                result = None;
+                plan = None;
+                plan_error = "";
+            }
+        }
+    }
+
+    def use_sample(description: str) {
+        house_description = description;
+        plan_error = "";
+        plan = None;
     }
 
     def add_room {
@@ -87,6 +169,7 @@ def:pub HomeCircuitSimulator() -> JsxElement {
         }
     }
 
+    def handle_house_description(e: ChangeEvent) { house_description = e.target.value; plan_error = ""; }
     def handle_room_name(e: ChangeEvent) { room_name_input = e.target.value; }
     def handle_watts(e: ChangeEvent) { watts_input = e.target.value; }
     def handle_hours(e: ChangeEvent) { hours_input = e.target.value; }
@@ -102,6 +185,35 @@ def:pub HomeCircuitSimulator() -> JsxElement {
                 <Card className="border border-violet-200/15 bg-[#140d22]/90 shadow-2xl shadow-violet-950/30 backdrop-blur-xl">
                     <CardHeader><CardTitle className="text-slate-100">Rooms and appliances</CardTitle><CardDescription className="text-slate-400">Appliance values begin as estimates. Adjust them to match your home.</CardDescription></CardHeader>
                     <CardContent className="flex flex-col gap-5">
+                        <div className="flex flex-col gap-3 rounded-xl border border-violet-200/15 bg-gradient-to-br from-violet-500/10 to-cyan-400/5 p-4">
+                            <label className="text-sm font-medium text-slate-100" htmlFor="house-description">Describe your home in plain English</label>
+                            <textarea id="house-description" value={house_description} onChange={handle_house_description} placeholder="For example: 2 bedrooms with fans, kitchen with fridge and kettle" className="min-h-24 w-full resize-y rounded-lg border border-violet-200/15 bg-[#0a0711] p-3 text-sm text-slate-100 placeholder:text-slate-500 focus:border-cyan-300/50 focus:outline-none" />
+                            <Button onClick={understand_house} disabled={parsing} className="border border-cyan-200/20 bg-gradient-to-r from-violet-700 via-violet-600 to-cyan-700 text-white">{"Understand my home" if not parsing else "Understanding…"}</Button>
+                            {if plan_error != "" {
+                                <p className="text-sm text-rose-300">{plan_error}</p>
+                                <p className="text-xs text-slate-300">Try a sample house:</p>
+                                <div className="flex flex-wrap gap-2">
+                                    <Button variant="outline" onClick={lambda (_e: MouseEvent) { use_sample("2 bedrooms with fans, kitchen with fridge and kettle"); }} className="border-violet-200/20 bg-violet-500/10 text-violet-100">Two bedrooms and kitchen</Button>
+                                    <Button variant="outline" onClick={lambda (_e: MouseEvent) { use_sample("Living room with a TV and fan, kitchen with a fridge"); }} className="border-violet-200/20 bg-violet-500/10 text-violet-100">Living room and kitchen</Button>
+                                    <Button variant="outline" onClick={lambda (_e: MouseEvent) { use_sample("One bedroom with a fan and bulb, kitchen with a fridge and kettle"); }} className="border-violet-200/20 bg-violet-500/10 text-violet-100">One bedroom home</Button>
+                                </div>
+                            }}
+                            {if plan is not None {
+                                <div className="flex flex-col gap-3 rounded-lg border border-cyan-200/20 bg-[#0a0711]/80 p-3">
+                                    <p className="text-sm font-semibold text-cyan-100">{"I understood: " + plan.summary}</p>
+                                    {for (room_index, room) in enumerate(plan.rooms) {
+                                        <div key={str(room_index)} className="text-sm text-slate-200">
+                                            <span className="font-medium">{room.name}</span>
+                                            <span className="text-slate-400">{": " + ", ".join([str(item.count) + " " + item.name for item in room.devices])}</span>
+                                        </div>
+                                    }}
+                                    <div className="flex flex-wrap gap-2">
+                                        <Button onClick={accept_plan} className="border border-cyan-200/20 bg-gradient-to-r from-violet-700 to-cyan-700 text-white">Accept</Button>
+                                        <Button variant="outline" onClick={edit_plan} className="border-violet-200/20 bg-violet-500/10 text-violet-100">Edit</Button>
+                                    </div>
+                                </div>
+                            }}
+                        </div>
                         <div className="flex flex-col gap-2 sm:flex-row">
                             <input aria-label="New room name" value={room_name_input} onChange={handle_room_name} placeholder="Room name, for example Kitchen" className="h-10 min-w-0 flex-1 rounded-md border border-violet-200/15 bg-[#0a0711] px-3 text-sm text-slate-100 placeholder:text-slate-500 focus:border-cyan-300/50 focus:outline-none" />
                             <Button variant="outline" onClick={add_room} className="border-violet-200/20 bg-violet-500/10 text-violet-100 hover:bg-violet-500/20">Add room</Button>

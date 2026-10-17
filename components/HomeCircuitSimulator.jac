@@ -3,7 +3,7 @@ import from .ui.card { Card, CardContent, CardHeader, CardTitle, CardDescription
 import from .ui.button { Button }
 import from .EnergyShell { EnergyShell }
 sv import from ..engine.circuits { Device, getApplianceLibrary }
-sv import from ..engine.simulation { ScheduleSimulationResult, simulateRoomData }
+sv import from ..engine.simulation { ScheduleSimulationResult, CircuitAdvice, simulateRoomData }
 sv import from ..engine.housePlan { HousePlan, parseHouseDescription }
 
 def:pub HomeCircuitSimulator() -> JsxElement {
@@ -285,6 +285,19 @@ def:pub HomeCircuitSimulator() -> JsxElement {
                             </div>
                             <div className="flex justify-between text-xs text-slate-400"><span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span></div>
                             <p className="text-xs text-slate-400">Each bar shows the estimated load for 15 minutes.</p>
+                            <div className="flex flex-col gap-3 border-t border-violet-200/10 pt-4">
+                                <div><h3 className="font-medium text-slate-100">Suggested circuits</h3><p className="text-xs text-slate-400">Grouped by room and everyday use.</p></div>
+                                {for (circuit_index, circuit) in enumerate(result.circuits) {
+                                    <div key={str(circuit_index)} className="flex flex-col gap-1 rounded-lg border border-violet-200/10 bg-[#0d0917]/80 p-3">
+                                        <div className="flex flex-wrap items-center justify-between gap-2">
+                                            <p className="font-medium text-slate-100">{circuit.room_name + " · " + circuit.circuit_name}</p>
+                                            <p className="text-sm font-semibold text-cyan-200">{str(circuit.suggested_rating) + " A"}</p>
+                                        </div>
+                                        <p className="text-xs text-slate-400">{circuit.reason}</p>
+                                        {if circuit.trips { <p className="text-xs font-semibold text-rose-300">Warning: switch trips at peak load.</p> }}
+                                    </div>
+                                }}
+                            </div>
                         }}
                     </CardContent>
                 </Card>

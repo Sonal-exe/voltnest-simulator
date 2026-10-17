@@ -6,6 +6,8 @@ import from engine.housePlan { HousePlan, parseHouseDescription }
 import from .components.VoltnestHome { VoltnestHome }
 import from .components.HomeCircuitSimulator { HomeCircuitSimulator }
 import from components.CircuitDesigner { CircuitDesigner }
+import from .components.ImproveMyHome { ImproveMyHome }
+import from agents.circuitAgent { HomeFix, recommendHomeFix }
 
 def:pub app() -> JsxElement {
     return <Router>
@@ -13,6 +15,7 @@ def:pub app() -> JsxElement {
             <Route path="/" element={<VoltnestHome />} />
             <Route path="/simulator" element={<HomeCircuitSimulator />} />
             <Route path="/circuits" element={<CircuitDesigner />} />
+            <Route path="/improve" element={<ImproveMyHome />} />
         </Routes>
     </Router>;
 }

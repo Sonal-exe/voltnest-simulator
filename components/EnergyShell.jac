@@ -32,7 +32,9 @@ def:pub EnergyShell(current: str, children: any = None) -> JsxElement {
                     <Link to="/circuits" className={"flex items-center gap-3 rounded-xl border px-3 py-3 text-sm transition-all duration-200 " + ("border-violet-300/25 bg-violet-500/15 text-white shadow-lg shadow-violet-950/20" if current == "circuits" else "border-transparent text-slate-400 hover:border-white/10 hover:bg-white/5 hover:text-white")}>
                         <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500/25 to-cyan-400/15 text-cyan-200">⌗</span><span>Circuit Designer</span>
                     </Link>
-                    <div className="flex items-center gap-3 rounded-xl border border-dashed border-white/10 px-3 py-3 text-sm text-slate-600" aria-label="Future feature placeholder"><span className="flex size-8 items-center justify-center rounded-lg border border-white/10">+</span><span>More features soon</span></div>
+                    <Link to="/improve" className={"flex items-center gap-3 rounded-xl border px-3 py-3 text-sm transition-all duration-200 " + ("border-violet-300/25 bg-violet-500/15 text-white shadow-lg shadow-violet-950/20" if current == "improve" else "border-transparent text-slate-400 hover:border-white/10 hover:bg-white/5 hover:text-white")}>
+                        <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500/25 to-cyan-400/15 text-cyan-200">+</span><span>Improve my home</span>
+                    </Link>
                 </nav>
                 <div className="mt-auto rounded-2xl border border-violet-300/15 bg-gradient-to-br from-violet-500/10 to-cyan-400/5 p-4">
                     <div className="mb-2 flex items-center gap-2"><span className="size-2 rounded-full bg-cyan-300 shadow-[0_0_12px_#67e8f9]"/><span className="text-xs font-medium text-violet-100">Predict with confidence</span></div>

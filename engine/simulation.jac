@@ -58,3 +58,22 @@ def simulateDay(rooms: list[Room]) -> ScheduleSimulationResult {
 def:pub simulateHomeDay(devices: list[Device]) -> ScheduleSimulationResult {
     return simulateDay([Room(name="Home", devices=devices)]);
 }
+
+def:pub simulateRoomData(room_names: list[str], room_devices: list[list[dict]]) -> ScheduleSimulationResult {
+    rooms: list[Room] = [];
+    for (index, room_name) in enumerate(room_names) {
+        devices: list[Device] = [];
+        for item in room_devices[index] {
+            devices.append(Device(
+                name=item["name"] as str,
+                watts=item["watts"] as float,
+                start_minute=item["start_minute"] as int,
+                run_minutes=item["run_minutes"] as int,
+                duty_cycle=item["duty_cycle"] as float,
+                lights_only=item["lights_only"] as bool
+            ));
+        }
+        rooms.append(Room(name=room_name, devices=devices));
+    }
+    return simulateDay(rooms);
+}

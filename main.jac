@@ -1,8 +1,15 @@
 import ".styles.global.css";
+import from "@jac/runtime" { Router, Routes, Route }
 import from engine.circuits { getApplianceLibrary }
-import from engine.simulation { simulateHomeDay }
+import from engine.simulation { simulateHomeDay, simulateRoomData }
 import from .components.VoltnestHome { VoltnestHome }
+import from .components.HomeCircuitSimulator { HomeCircuitSimulator }
 
 def:pub app() -> JsxElement {
-    return <VoltnestHome />;
+    return <Router>
+        <Routes>
+            <Route path="/" element={<VoltnestHome />} />
+            <Route path="/simulator" element={<HomeCircuitSimulator />} />
+        </Routes>
+    </Router>;
 }

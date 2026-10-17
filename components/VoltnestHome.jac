@@ -1,5 +1,6 @@
 import from .ui.card { Card, CardContent, CardHeader, CardTitle, CardDescription }
 import from .ui.button { Button }
+import from "@jac/runtime" { Link }
 sv import from ..engine.circuits { Device, getApplianceLibrary }
 sv import from ..engine.simulation { ScheduleSimulationResult, simulateHomeDay }
 
@@ -92,7 +93,8 @@ def:pub VoltnestHome() -> JsxElement {
                                 </button>
                             }
                         }}
-                        <Button onClick={run_simulation} className="mt-2 w-full">{"Run 24-hour simulation"}</Button>
+                        <Link to="/simulator" className="mt-2 flex h-10 w-full items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90">Build rooms and simulate</Link>
+                    <Button onClick={run_simulation} className="w-full">{"Run 24-hour simulation"}</Button>
                         {if error_message != "" {
                             <p className="text-sm text-destructive">{error_message}</p>
                         }}

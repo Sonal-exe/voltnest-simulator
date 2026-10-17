@@ -40,7 +40,7 @@ def:pub HomeCircuitSimulator() -> JsxElement {
         error_message = "";
     }
 
-    def add_device {
+    def add_device(room_index: int) {
         if pending_device is None {
             error_message = "Choose an appliance from the library first.";
         } else {
@@ -57,8 +57,15 @@ def:pub HomeCircuitSimulator() -> JsxElement {
                     "duty_cycle": pending_device.duty_cycle,
                     "lights_only": pending_device.lights_only
                 };
-                devices = room_devices[0] + [configured];
-                room_devices = [devices] + room_devices[1:];
+                updated_rooms: list[list[dict]] = [];
+                for (index, devices) in enumerate(room_devices) {
+                    if index == room_index {
+                        updated_rooms = updated_rooms + [devices + [configured]];
+                    } else {
+                        updated_rooms = updated_rooms + [devices];
+                    }
+                }
+                room_devices = updated_rooms;
                 result = None;
                 error_message = "";
             }
@@ -142,7 +149,7 @@ def:pub HomeCircuitSimulator() -> JsxElement {
                                         <p key={str(device["name"])} className="text-sm">{str(device["name"]) + " · " + str(device["watts"]) + " W · " + str(device["run_minutes"]) + " minutes (Estimated)"}</p>
                                     }
                                 }}
-                                <Button variant="outline" onClick={add_device}>Add selected appliance here</Button>
+                                <Button variant="outline" onClick={lambda (_e: MouseEvent) { add_device(index); }}>Add selected appliance here</Button>
                             </div>
                         }}
                         {if error_message != "" { <p className="text-sm text-destructive">{error_message}</p> }}

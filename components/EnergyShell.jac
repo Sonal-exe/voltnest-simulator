@@ -29,6 +29,9 @@ def:pub EnergyShell(current: str, children: any = None) -> JsxElement {
                     <Link to="/simulator" className={"flex items-center gap-3 rounded-xl border px-3 py-3 text-sm transition-all duration-200 " + ("border-violet-300/25 bg-violet-500/15 text-white shadow-lg shadow-violet-950/20" if current == "simulator" else "border-transparent text-slate-400 hover:border-white/10 hover:bg-white/5 hover:text-white")}>
                         <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500/25 to-cyan-400/15 text-cyan-200">⌁</span><span>Energy predictor</span>
                     </Link>
+                    <Link to="/circuits" className={"flex items-center gap-3 rounded-xl border px-3 py-3 text-sm transition-all duration-200 " + ("border-violet-300/25 bg-violet-500/15 text-white shadow-lg shadow-violet-950/20" if current == "circuits" else "border-transparent text-slate-400 hover:border-white/10 hover:bg-white/5 hover:text-white")}>
+                        <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500/25 to-cyan-400/15 text-cyan-200">⌗</span><span>Circuit Designer</span>
+                    </Link>
                     <div className="flex items-center gap-3 rounded-xl border border-dashed border-white/10 px-3 py-3 text-sm text-slate-600" aria-label="Future feature placeholder"><span className="flex size-8 items-center justify-center rounded-lg border border-white/10">+</span><span>More features soon</span></div>
                 </nav>
                 <div className="mt-auto rounded-2xl border border-violet-300/15 bg-gradient-to-br from-violet-500/10 to-cyan-400/5 p-4">
@@ -43,9 +46,10 @@ def:pub EnergyShell(current: str, children: any = None) -> JsxElement {
                     <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300"><span className="size-1.5 rounded-full bg-cyan-300 shadow-[0_0_10px_#67e8f9]"/>Ready</div>
                 </header>
                 <div className="border-b border-white/10 bg-[#10091d]/90 px-3 py-2 md:hidden">
-                    <nav className="grid grid-cols-2 gap-2">
-                        <Link to="/" className={"rounded-lg px-3 py-2 text-center text-xs " + ("bg-violet-500/20 text-white" if current == "home" else "text-slate-400")}>Overview</Link>
-                        <Link to="/simulator" className={"rounded-lg px-3 py-2 text-center text-xs " + ("bg-violet-500/20 text-white" if current == "simulator" else "text-slate-400")}>Energy predictor</Link>
+                    <nav className="grid grid-cols-3 gap-2">
+                        <Link to="/" className={"rounded-lg px-2 py-2 text-center text-xs " + ("bg-violet-500/20 text-white" if current == "home" else "text-slate-400")}>Overview</Link>
+                        <Link to="/simulator" className={"rounded-lg px-2 py-2 text-center text-xs " + ("bg-violet-500/20 text-white" if current == "simulator" else "text-slate-400")}>Energy predictor</Link>
+                        <Link to="/circuits" className={"rounded-lg px-2 py-2 text-center text-xs " + ("bg-violet-500/20 text-white" if current == "circuits" else "text-slate-400")}>Circuits</Link>
                     </nav>
                 </div>
                 <div className="relative animate-in fade-in slide-in-from-bottom-2 duration-500">{children}</div>

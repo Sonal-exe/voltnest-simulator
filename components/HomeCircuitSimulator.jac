@@ -91,6 +91,7 @@ def:pub HomeCircuitSimulator() -> JsxElement {
             if len(new_names) > 0 {
                 room_names = new_names;
                 room_devices = new_devices;
+                localStorage.setItem("voltnest_circuit_rooms", JSON.stringify({"names": room_names, "devices": room_devices}));
                 result = None;
                 plan = None;
                 plan_error = "";
@@ -111,6 +112,7 @@ def:pub HomeCircuitSimulator() -> JsxElement {
         } else {
             room_names = room_names + [name];
             room_devices = room_devices + [[]];
+            localStorage.setItem("voltnest_circuit_rooms", JSON.stringify({"names": room_names, "devices": room_devices}));
             room_name_input = "";
             error_message = "";
         }
@@ -149,6 +151,7 @@ def:pub HomeCircuitSimulator() -> JsxElement {
                     }
                 }
                 room_devices = updated_rooms;
+                localStorage.setItem("voltnest_circuit_rooms", JSON.stringify({"names": room_names, "devices": room_devices}));
                 result = None;
                 error_message = "";
             }
@@ -261,6 +264,7 @@ def:pub HomeCircuitSimulator() -> JsxElement {
                         }}
                         {if error_message != "" { <p className="text-sm text-destructive">{error_message}</p> }}
                         <Button onClick={run_simulation} className="border border-cyan-200/20 bg-gradient-to-r from-violet-700 via-violet-600 to-cyan-700 text-white shadow-lg shadow-violet-950/30 transition-all duration-300 hover:-translate-y-0.5 hover:from-violet-600 hover:to-cyan-600">Simulate</Button>
+                        <Link to="/circuits" className="flex h-10 items-center justify-center rounded-md border border-cyan-200/20 bg-cyan-300/10 px-4 text-sm font-medium text-cyan-100 transition-colors hover:bg-cyan-300/20">View circuit diagram</Link>
                     </CardContent>
                 </Card>
                 <Card className="border border-violet-200/15 bg-[#140d22]/90 shadow-2xl shadow-violet-950/30 backdrop-blur-xl">
